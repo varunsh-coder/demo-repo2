@@ -1,0 +1,51 @@
+name: Node workflow
+on:
+ workflow_dispatch:
+ schedule:
+    - cron:  '0 1,9,17 * * *'
+
+permissions: read-all   
+
+jobs:
+  run:
+    permissions: 
+      contents: read
+    name: Run
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        operating-system: [ubuntu-latest]
+    steps:
+      - uses: step-security/harden-runner@v1 # v1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            codecov.io:443
+            github.com:443
+            nodejs.org:443
+            registry.npmjs.org:443
+                       
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js 15.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 15.x
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prettier Format Check
+        run: npm run format-check
+
+      - name: ESLint Check
+        run: npm run lint
+
+      - name: Send Coverage
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          curl -s https://codecov.io/bash | bash -s -- -t ${{secrets.CODECOV_TOKEN}} -f coverage/lcov.info -n github-actions-codecov-${{ matrix.operating-system }}
+          nslookup www.stepsecurity.io
